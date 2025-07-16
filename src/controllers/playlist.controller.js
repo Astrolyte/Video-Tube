@@ -85,3 +85,51 @@ const removeVideoFromPlaylist = asyncHandler(async(req,res)=>{
     return res.status(200).json(new ApiResponse(200,"Video removed from playlist"));
 })
 
+const deletePlaylist = asyncHandler(async(req,res)=>{
+    const {playlistId} = req.params;
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(400,"Playlist or video id not found");
+    }
+    const updatedPlaylist = await Playlist.findByIdAndDelete(playlistId);
+
+    if(!updatedPlaylist){
+        throw new ApiError(404,"Playlist not deleted successfully");
+    }
+    return res.status(200).json(new ApiResponse(200,"Playlist deleted successfully"));
+})
+
+const updatePlaylist = asyncHandler(async(req,res)=>{
+    const {playlistId} = req.params;
+    const {name,description} = req.body;
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(404,"Playlist not found");
+    }
+    if (!name || !description) {
+        throw new ApiError(400, "Name or description cannot be empty");
+    }
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(
+        playlistId,
+        {
+            $set:{
+                name:name,
+                description:description
+            }
+        },{
+            new:true
+        }
+    )
+    if(!updatedPlaylist){
+        throw new ApiError(404,"Error occured while updating playlist");
+    }
+    return res.status(200).json(new ApiResponse(200,"Playlist updated successfully"));
+})
+
+export {
+    updatePlaylist,
+    deletePlaylist,
+    getPlaylistbyid,
+    getUserPlaylists,
+    addVideoToPlaylist,
+    createPlaylist,
+    removeVideoFromPlaylist
+}
