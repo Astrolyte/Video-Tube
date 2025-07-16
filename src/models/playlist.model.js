@@ -1,17 +1,13 @@
 import mongoose, {Schema} from "mongoose";
 
 const playlistSchema = new Schema({
-    video:{
-        type: Schema.Types.ObjectId,
-        ref:"Video"
-    },
     name:{
         type: String,
-        ref:true
+        required:true
     },
     description:{
         type: String,
-        ref:True
+        required:True
     },
     videos: [{
             type: Schema.Types.ObjectId,
