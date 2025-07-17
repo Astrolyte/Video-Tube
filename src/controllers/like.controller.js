@@ -61,7 +61,7 @@ const toggleTweetLike = asyncHandler(async(req,res)=>{
         throw new ApiError(400,"User login is required");
     }
     const existinglike = await Like.findOne({
-        comment: commentId,
+        tweet: tweetId,
         userId: userid
     })
     if(existinglike){
@@ -72,7 +72,7 @@ const toggleTweetLike = asyncHandler(async(req,res)=>{
         tweet: tweetId,
         likedBy: userid
     })
-    return res.status(201).json(new ApiResponse(201,likecomment,"Like added successfully"));
+    return res.status(201).json(new ApiResponse(201,likeTweet,"Like added successfully"));
 })
 const getLikedVideos = asyncHandler(async(req,res)=>{
     const userId = req.user._id;

@@ -4,16 +4,21 @@ import { Video } from "../models/video.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose, { isValidObjectId } from "mongoose";
-
+import { getVideoDuration } from "../utils/ffmpeg.js";
 const getallvideos = asyncHandler(async(req,res)=>{
     const {
         page = 1,
         limit = 10,
         query = "",
         sortBy = "createdAt",
-        sortType = "Desc",
+        sortType = "desc",
         userId, 
     } = req.query;
+    
+    const match = {
+    ...(query ? { title: { $regex: query, $options: "i" } } : {}), // If query exists, match titles that contain the search term (case-insensitive)
+    ...(userId ? { owner: mongoose.Types.ObjectId(userId) } : {}), // If userId exists, filter videos by that owner
+  };
 
     try{
         const validSortFields = ["createdAt","title"];
@@ -111,50 +116,42 @@ const getUserVideos = asyncHandler(async(req,res)=>{
         return res.status(400).json(new ApiError(error.message,error.statusCode));
     }
 })
-const uploadVideo = asyncHandler(async(req,res)=>{
-    const {title,description, owner} = req.body;
-    const videolocalpath = req.files?.videoFile[0]?.path;
+const uploadVideo = asyncHandler(async(req,res) => {
+  const { title, description } = req.body;
+  const videolocalpath = req.files.videoFile[0].path;
+  const thumbnaillocalpath = req.files.thumbnail[0].path;
 
-    if(!title){
-        throw new ApiError(400,"Title is required");
-    }
-    if(!description){
-        throw new ApiError(400,"description is required");
-    }
-    if(!videolocalpath){
-        throw new ApiError(400,"Video is required");
-    }
+  if (!title) throw new ApiError(400, "Title is required");
+  if (!description) throw new ApiError(400, "Description is required");
+  if (!videolocalpath) throw new ApiError(400, "Video is required");
+  if (!thumbnaillocalpath) throw new ApiError(400, "Thumbnail is required");
 
-    const thumbnaillocalpath = req.files?.thumbnail[0]?.path;
-    if(!thumbnaillocalpath){
-        throw new ApiError(400,"Thumbnail is required");
-    }
-    try{
-    
-    const video = await uploadOnCloudinary(videolocalpath);
-    if(!video){
-        throw new ApiError(400,"Failed to upload video");
-    }
-    
-    const thumbnail = await uploadOnCloudinary(thumbnaillocalpath)
-    if(!thumbnail){
-        throw new ApiError(400,"thumbnail upload failed");
-    }
-    const duration =  video.duration;
+  const cloudvideo = await uploadOnCloudinary(videolocalpath);
+  const cloudthumbnail = await uploadOnCloudinary(thumbnaillocalpath);
 
-    const newVideo = await Video.create({
-        video:video,
-        thumbnail:thumbnail,
-        title,
-        description,
-        duration,
-        owner
-    });
-    return res.status(201).json(new ApiResponse(201,video,"video published successfully"))
-    }catch{
-        throw new ApiError(400,"Failed to upload video");
-    }
+  if (!cloudvideo || !cloudvideo.secure_url) {
+    throw new ApiError(400, "Failed to upload video");
+  }
+  if (!cloudthumbnail || !cloudthumbnail.secure_url) {
+    throw new ApiError(400, "Failed to upload thumbnail");
+  }
+
+  const newVideo = await Video.create({
+    videoFile: cloudvideo.secure_url,
+    thumbnail: cloudthumbnail.secure_url,
+    title,
+    description,
+    duration: cloudvideo.duration,
+    owner: req.user._id,
+  });
+
+  if (!newVideo) {
+    throw new ApiError(400, "Error in publishing video on db");
+  }
+
+  return res.status(201).json(new ApiResponse(201, newVideo, "Video published successfully"));
 });
+
 
 const getVideoById = asyncHandler(async(req,res)=>{
     const {videoId} = req.params;
@@ -226,14 +223,12 @@ const togglePublishStatus = asyncHandler(async(req,res)=>{
     if(!isValidObjectId(videoId)){
         throw new ApiError(400,"Invalid video id");
     }
-    const video = await Video.findByIdAndUpdate(
-        videoId,
-        {$set: {isPublished: !video.isPublished}},
-        {new: true}
-    )
-    if(!video){
-        throw new ApiError(404,"Video not found");
-    }
+    const video = await Video.findById(videoId);
+      if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+   video.isPublished = !video.isPublished;
+   await video.save();
     return res
     .status(200)
     .json(

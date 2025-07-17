@@ -5,6 +5,9 @@ import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import {Tweet} from "../models/tweet.model.js";
+import {Comment} from "../models/comment.model.js"
+
 
 const getChannelStats = asyncHandler(async (req, res) => {
   const userid = req.user._id;
@@ -36,7 +39,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
   }
   const totalTweetLikes = await Like.countDocuments({
     tweet:{
-        $in: await Tweet.find({owner:user}).distinct("_id"),
+        $in: await Tweet.find({owner:userid}).distinct("_id"),
     }
   });
   if (totalTweetLikes === null || totalTweetLikes === undefined) {
@@ -47,7 +50,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
   }
   const totalCommentLikes = await Like.countDocuments({
     comment:{
-        $in: await Comment.find({owner:user}).distinct("_id"),
+        $in: await Comment.find({owner:userid}).distinct("_id"),
     }
   })
   if (totalCommentLikes === null || totalCommentLikes === undefined) {
